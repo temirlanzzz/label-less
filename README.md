@@ -75,7 +75,3 @@ docs/screenshot.png
 - Linear model: cheap to retrain each round; deep models have worse-calibrated uncertainty and expensive retraining.
 - Simulated oracle using ground-truth labels; a real annotator is slower and noisier on exactly the ambiguous images uncertainty sampling picks.
 - Five seeds — enough to see the gap, not enough for tight error bars.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
