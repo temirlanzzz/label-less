@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Label Less — active learning, live</title>
+<meta name="description" content="Two identical classifiers start from the same 10 labels. One gets random images, the other asks for the ones it is least sure about. Watch the curves in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>
+  try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <span class="name">label-less</span>
+    <nav>
+      <a href="https://temirlanzzz.github.io">← temirlan</a>
+      <a href="https://github.com/temirlanzzz/label-less">github</a>
+      <button class="theme" id="theme" type="button" aria-label="Toggle colour theme">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 0 0 12z" fill="currentColor"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="label">active learning, live · softmax regression in your browser</div>
+    <h1>Label <em>less.</em></h1>
+    <p>Two identical classifiers start from the same 10 labelled digits. One is handed random images; the other asks for the images it is least sure about. Press run and watch which one gets to 90% first.</p>
+  </section>
+
+  <section class="wrap" aria-label="Live demo">
+    <div class="demo">
+      <div class="controls">
+        <div class="btns">
+          <button class="b primary" id="run" type="button" disabled>run</button>
+          <button class="b" id="step" type="button" disabled>step</button>
+          <button class="b" id="reset" type="button" disabled>reset</button>
+        </div>
+        <label class="field"><span class="label">strategy</span>
+          <select id="strategy">
+            <option value="margin">margin</option>
+            <option value="entropy">entropy</option>
+            <option value="least">least-confident</option>
+          </select>
+        </label>
+        <label class="field"><span class="label">batch</span>
+          <select id="batch">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </label>
+        <label class="field"><span class="label">seed</span>
+          <input id="seed" type="number" min="0" max="9999" step="1" value="0" inputmode="numeric">
+        </label>
+        <div class="status" id="status">loading 1,797 digits…</div>
+      </div>
+
+      <div class="tiles">
+        <div class="tile"><div class="label">labels used (each)</div><div class="v" id="t-labels">–</div></div>
+        <div class="tile"><div class="label">active accuracy</div><div class="v acc" id="t-active">–</div></div>
+        <div class="tile"><div class="label">random accuracy</div><div class="v" id="t-random">–</div></div>
+        <div class="tile"><div class="label">labels to 90% · active / random</div><div class="v" id="t-90">–</div></div>
+      </div>
+
+      <div class="stage">
+        <div class="chartbox">
+          <div class="head">
+            <span class="label">test accuracy (500 held-out images) vs labels used</span>
+            <div class="legend">
+              <span class="la"><i></i>active</span>
+              <span class="lr"><i></i>random</span>
+              <span class="lb"><i></i>all 1,297 labels</span>
+            </div>
+          </div>
+          <canvas id="chart" role="img" aria-label="Accuracy versus number of labels for the active and random learners"></canvas>
+        </div>
+        <aside class="queries">
+          <div class="label">next queries · active learner</div>
+          <p>The images it will ask a human to label next, most uncertain first. Caption: its current guess → true label.</p>
+          <div class="grid" id="grid"></div>
+          <div class="classes">
+            <div class="label">labels per digit · <span style="color:var(--accent)">active</span> vs random</div>
+            <p>Which digits each learner has paid for so far.</p>
+            <div class="bars" id="bars"></div>
+            <div class="bars-x"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="writeup wrap">
+    <div class="sec">
+      <h2>How it works</h2>
+      <div class="body">
+        <p>The data is the UCI optical digits set (sklearn's <code>load_digits</code>): 1,797 handwritten digits at 8×8 pixels. I split it once into a <strong>1,297-image unlabelled pool</strong> and a <strong>fixed 500-image test set</strong> that no learner ever sees.</p>
+        <p>Both learners are the same model: <strong>softmax regression</strong> (64 pixels + bias → 10 classes) trained from scratch with full-batch gradient descent, Nesterov momentum and a little L2. Both start from the same 10 random labels, chosen by the seed.</p>
+        <p>Every round each learner gets one more batch of labels. The random learner takes the next images from a shuffled pool. The active learner scores every unlabelled image with its current model and asks for the ones it is least sure about:</p>
+        <ul>
+          <li><strong>margin</strong> — smallest gap between the top two class probabilities (default)</li>
+          <li><strong>entropy</strong> — highest entropy of the predicted distribution</li>
+          <li><strong>least-confident</strong> — lowest top probability</li>
+        </ul>
+        <p>The "human" is simulated: it just reveals the true label. Both models are retrained from zero after each batch and scored on the test set. Everything — model, sampling, the chart — is plain JavaScript with no dependencies, in <code>al.js</code> and <code>app.js</code>.</p>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Measured results</h2>
+      <div class="body" id="results">
+        <p>I ran <code>bench()</code> (in <code>al.js</code>, page <a href="bench.html">bench.html</a>) in headless Chrome 155: 5 seeds, batch of 10, up to 400 labels, same fixed 500-image test set. Raw output is in <code>results/bench-chrome.json</code>.</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>metric (5 seeds)</th><th>active · margin</th><th>random</th></tr></thead>
+          <tbody>
+            <tr><td>labels to reach 90%</td><td class="hl">66 avg (60–80)</td><td>126 avg (100–150)</td></tr>
+            <tr><td>accuracy at 100 labels</td><td class="hl">92.9%</td><td>88.6%</td></tr>
+            <tr><td>accuracy at 200 labels</td><td class="hl">97.3%</td><td>93.0%</td></tr>
+            <tr><td>labels to reach 95%</td><td class="hl">110–160</td><td>230–400, one seed never</td></tr>
+            <tr><td>accuracy at 400 labels</td><td class="hl">98.0%</td><td>95.2%</td></tr>
+          </tbody>
+        </table></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>strategy</th><th>labels to 90%</th><th>at 100 labels</th><th>at 200 labels</th></tr></thead>
+          <tbody>
+            <tr><td>margin</td><td class="hl">66 (60–80)</td><td>92.9%</td><td>97.3%</td></tr>
+            <tr><td>least-confident</td><td>98 (90–110)</td><td>90.7%</td><td>96.8%</td></tr>
+            <tr><td>entropy</td><td>116 (110–120)</td><td>88.2%</td><td>94.8%</td></tr>
+            <tr><td>random</td><td>126 (100–150)</td><td>88.6%</td><td>93.0%</td></tr>
+          </tbody>
+        </table></div>
+        <p>Training on all 1,297 pool labels gives <strong>97.2%</strong> (1,500 iterations; 97.4% at 300). So margin sampling reaches 90% with about <strong>half the labels</strong> random needs, and by ~200 labels it matches the all-labels model.</p>
+        <p class="note">Numbers will differ slightly from the live demo if you change batch size or seed; the demo runs the exact same code.</p>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>What I learned</h2>
+      <div class="body" id="learned">
+        <ul>
+          <li><strong>Uncertainty sampling is not a free win.</strong> Entropy sampling was worse than random on two of five seeds (120 vs 100 labels to 90%) and on average at 100 labels. With 10 labels the model's probabilities are badly calibrated, and entropy over all ten classes rewards images that are vaguely confusing rather than ones near a real decision boundary.</li>
+          <li><strong>Margin was the most reliable</strong>, beating random on every seed, so it is the default. It only looks at the top two classes, which is the question that actually decides the prediction.</li>
+          <li><strong>Check the baseline before you brag.</strong> I expected the all-labels model to need many more iterations, and trained it to 1,500 to be sure. With Nesterov momentum it was already converged at 300 (97.4% vs 97.2%), so the comparison here is fair — but the only way to know was to measure.</li>
+          <li><strong>"Beats all labels" is mostly noise.</strong> Active learners at 400 labels scored 98.0% vs 97.2% for all 1,297 labels. On a 500-image test set that is 4 images. I report it, but I would not claim it as a result.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Limits</h2>
+      <div class="body">
+        <ul>
+          <li><strong>Toy dataset.</strong> 8×8 digits are small, clean and balanced. Real labelling budgets fight class imbalance, noisy labels and duplicates.</li>
+          <li><strong>Linear model.</strong> Softmax regression is cheap enough to retrain every round in a browser. With a deep model, uncertainty estimates are worse calibrated and retraining is the expensive part.</li>
+          <li><strong>Simulated oracle.</strong> Labels come from ground truth instantly. A real annotator is slower and less accurate on exactly the ambiguous images uncertainty sampling picks.</li>
+          <li><strong>Five seeds.</strong> Enough to see the gap, not enough for tight error bars.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>label-less · Temirlan Zarymkanov</span>
+    <span>static html/css/js · no dependencies · MIT</span>
+  </div>
+</footer>
+
+<script src="al.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

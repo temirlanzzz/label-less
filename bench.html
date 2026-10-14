@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Label Less — bench</title>
+<style>
+  body { font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; margin: 24px; background: #f4f3ef; color: #121211; }
+  @media (prefers-color-scheme: dark) { body { background: #0d0d0c; color: #ecebe6; } }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<p>bench(): active vs random, 5 seeds, batch 10, up to 400 labels. Strategies: <span id="which"></span>. Takes about a minute per strategy.</p>
+<pre id="out">running…</pre>
+<script src="al.js"></script>
+<script>
+  // Usage: bench.html?s=margin,entropy,least   (results are also written to window.result)
+  const q = new URLSearchParams(location.search);
+  const strategies = (q.get('s') || 'margin').split(',');
+  document.getElementById('which').textContent = strategies.join(', ');
+  fetch('digits.json').then((r) => r.json()).then((json) => {
+    const data = AL.decode(json), sp = AL.split(data);
+    const t0 = performance.now();
+    const result = { ua: navigator.userAgent, strategies: {} };
+    for (const s of strategies) result.strategies[s] = AL.bench(data, { strategy: s, batch: 10, seeds: [0, 1, 2, 3, 4], maxLabels: 400 });
+    result.baseline = {};
+    for (const it of [300, 1500]) result.baseline[it] = AL.allLabelsBaseline(data, sp, it);
+    result.ms = Math.round(performance.now() - t0);
+    window.result = result;
+    document.getElementById('out').textContent = 'BENCH_JSON ' + JSON.stringify(result);
+  });
+</script>
+</body>
+</html>
